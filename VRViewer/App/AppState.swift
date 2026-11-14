@@ -322,6 +322,7 @@ final class AppState: ObservableObject {
         handProcessor.onHands = { [weak self] left, right in
             self?.link?.updateHands(left: left, right: right)
         }
+        handProcessor.uiOrientation = HeldOrientation.uiOrientation
         handProcessor.start()
         handStatus = "Manos: buscando…"
 
@@ -373,6 +374,9 @@ final class AppState: ObservableObject {
         sixDofEnabled = enabled
         link?.setSixDofEnabled(enabled)
         if enabled {
+            // IMPORTANTE: liberar la cámara ANTES de arrancar ARKit,
+            // si no ARKit no consigue la cámara y nunca entrega poses.
+            stopHandCamera()
             startSixDoF()
         } else {
             stopSixDoF()
@@ -403,8 +407,8 @@ final class AppState: ObservableObject {
         tracker.start()
         sixDoF = tracker
 
+        // Las manos se alimentan de los frames de ARKit (una sola cámara).
         if handsEnabled {
-            stopHandCamera()
             handProcessor.start()
         }
     }
@@ -417,7 +421,11 @@ final class AppState: ObservableObject {
 
         if handsEnabled, connection == .connected {
             handProcessor.start()
-            startHandCamera()
+            // Se espera un instante a que ARKit suelte la cámara.
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.7) { [weak self] in
+                guard let self, self.handsEnabled, self.sixDoF == nil else { return }
+                self.startHandCamera()
+            }
         }
     }
 

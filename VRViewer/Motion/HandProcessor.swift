@@ -25,6 +25,8 @@ final class HandProcessor: NSObject {
     var landmarkRotation = 0
     /// Multiplicador del espacio recorrido por las manos (0.5 … 2.0).
     var gain: Float = 1.0
+    /// Orientación con la que MediaPipe debe interpretar el frame de cámara.
+    var uiOrientation: UIImage.Orientation = .up
 
     private let queue = DispatchQueue(label: "vr.hand-processor")
     private let sequenceHandler = VNSequenceRequestHandler()
@@ -148,6 +150,9 @@ final class HandProcessor: NSObject {
         guard let landmarker else { return }
         // MPImage(pixelBuffer:) puede lanzar y ser failable según la versión.
         guard let image = try? MPImage(pixelBuffer: pixelBuffer) else { return }
+        // Sin esto MediaPipe interpreta el buffer del sensor tal cual y las
+        // coordenadas salen giradas (la mano se mueve en ejes equivocados).
+        image.orientation = uiOrientation
         let timestamp = Int(Date().timeIntervalSince1970 * 1000)
         try? landmarker.detectAsync(image: image, timestampInMilliseconds: timestamp)
     }
@@ -494,6 +499,17 @@ enum HeldOrientation {
         case .portraitUpsideDown: return .left
         case .landscapeLeft: return .down
         case .landscapeRight: return .up
+        default: return .up
+        }
+    }
+
+    /// La misma orientación, en el tipo que usa MediaPipe (UIImage).
+    static var uiOrientation: UIImage.Orientation {
+        switch backCameraVisionOrientation {
+        case .up: return .up
+        case .down: return .down
+        case .left: return .left
+        case .right: return .right
         default: return .up
         }
     }

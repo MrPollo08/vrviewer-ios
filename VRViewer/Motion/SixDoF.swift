@@ -63,6 +63,14 @@ final class SixDoF: NSObject, ARSessionDelegate {
     func session(_ session: ARSession, didUpdate frame: ARFrame) {
         guard isRunning else { return }
 
+        // Los frames se reenvían SIEMPRE (aunque el tracking 6DoF falle),
+        // porque de ellos se alimenta el tracking de manos.
+        let now = CACurrentMediaTime()
+        if now - lastForwardedFrame >= 1.0 / 30.0 {
+            lastForwardedFrame = now
+            onFrame?(frame.capturedImage, .right)
+        }
+
         if case .normal = frame.camera.trackingState {
             let transform = frame.camera.transform
             let position = SIMD3<Float>(transform.columns.3.x,
@@ -83,17 +91,9 @@ final class SixDoF: NSObject, ARSessionDelegate {
                                                w: rotation.real),
                                     tracked: true)
             onPose?(pose)
-
-            // Reusar estos mismos frames para las manos (equivale a ARCore + MediaPipe).
-            let now = CACurrentMediaTime()
-            if now - lastForwardedFrame >= 1.0 / 15.0 {
-                lastForwardedFrame = now
-                onFrame?(frame.capturedImage, .right)
-            }
         } else {
             onPose?(.lost)
 
-            let now = CACurrentMediaTime()
             if now - lastTrackingWarning > 5 {
                 lastTrackingWarning = now
                 onStatus?("6DoF sin señal: busca una zona con luz y detalles")
