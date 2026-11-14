@@ -56,7 +56,7 @@ final class HandCamera: NSObject, AVCaptureVideoDataOutputSampleBufferDelegate {
         }
 
         session.beginConfiguration()
-        session.sessionPreset = .hd1920x1080
+        session.sessionPreset = .hd1280x720
 
         let device = cameraDevice()
         guard let camera = device else {

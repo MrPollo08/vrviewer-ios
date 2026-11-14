@@ -30,8 +30,10 @@ final class HandProcessor: NSObject {
 
     private let queue = DispatchQueue(label: "vr.hand-processor")
     private let sequenceHandler = VNSequenceRequestHandler()
-    private let leftSmoother = HandPoseSmoother()
-    private let rightSmoother = HandPoseSmoother()
+    private let leftSmoother = HandPoseSmoother(posMinCutoff: 0.9, posBeta: 0.25,
+                                                quatSlerpFactor: 0.30, gripPinchAlpha: 0.35)
+    private let rightSmoother = HandPoseSmoother(posMinCutoff: 0.9, posBeta: 0.25,
+                                                 quatSlerpFactor: 0.30, gripPinchAlpha: 0.35)
     private let leftClick = PinchClickDetector()
     private let rightClick = PinchClickDetector()
     let calibration = HandOrientationCalibration()
@@ -52,7 +54,9 @@ final class HandProcessor: NSObject {
     /// Período de gracia: si una mano parpadea se mantiene su última pose.
     private var lastLeftSeenAt: CFTimeInterval = 0
     private var lastRightSeenAt: CFTimeInterval = 0
-    private let graceInterval: CFTimeInterval = 0.15
+    private let graceInterval: CFTimeInterval = 0.25
+    private var lastTimestampMs = 0
+    private var lastDebugAt: CFTimeInterval = 0
 
     #if canImport(MediaPipeTasksVision)
     private var landmarker: HandLandmarker?
@@ -153,8 +157,11 @@ final class HandProcessor: NSObject {
         // Sin esto MediaPipe interpreta el buffer del sensor tal cual y las
         // coordenadas salen giradas (la mano se mueve en ejes equivocados).
         image.orientation = uiOrientation
-        let timestamp = Int(Date().timeIntervalSince1970 * 1000)
-        try? landmarker.detectAsync(image: image, timestampInMilliseconds: timestamp)
+        // MediaPipe exige timestamps estrictamente crecientes; si se repiten,
+        // descarta el frame (eso producía huecos y "parpadeos").
+        let raw = Int(Date().timeIntervalSince1970 * 1000)
+        lastTimestampMs = max(raw, lastTimestampMs + 1)
+        try? landmarker.detectAsync(image: image, timestampInMilliseconds: lastTimestampMs)
     }
     #else
     private func setupMediaPipe() {}
@@ -232,7 +239,7 @@ final class HandProcessor: NSObject {
         var leftCandidate: Candidate?
         var rightCandidate: Candidate?
 
-        let allLabelled = !candidates.isEmpty && candidates.allSatisfy { $0.isRight != nil }
+        let allLabelled = false // se asigna SIEMPRE por continuidad (las etiquetas de MediaPipe se invierten con cámara trasera)
         if allLabelled {
             leftCandidate = candidates.first { $0.isRight == false }
             rightCandidate = candidates.first { $0.isRight == true }
@@ -293,6 +300,14 @@ final class HandProcessor: NSObject {
         publishedLeft = left
         publishedRight = right
         onHands?(left, right)
+
+        // Diagnóstico: qué ve el detector y dónde (1 vez por segundo).
+        if now - lastDebugAt > 1.0 {
+            lastDebugAt = now
+            let leftText = lastLeftWrist.map { String(format: "%.2f,%.2f", $0.0, $0.1) } ?? "—"
+            let rightText = lastRightWrist.map { String(format: "%.2f,%.2f", $0.0, $0.1) } ?? "—"
+            onStatus?("manos izq \(leftText) · der \(rightText)")
+        }
     }
 
     private func assign(_ candidates: [Candidate]) -> (left: Candidate?, right: Candidate?) {
