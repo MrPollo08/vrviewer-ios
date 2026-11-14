@@ -27,7 +27,6 @@ final class HandProcessor: NSObject {
     var gain: Float = 1.0
     /// Rotación base (0..3) según cómo esté montado el teléfono.
     var baseRotation = 0
-
     private let queue = DispatchQueue(label: "vr.hand-processor")
     private let sequenceHandler = VNSequenceRequestHandler()
     private let leftSmoother = HandPoseSmoother(posMinCutoff: 0.9, posBeta: 0.25,

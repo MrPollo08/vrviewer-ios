@@ -17,6 +17,10 @@ final class HeadMotion {
     private var reference: Quat?
     private var hasReportedData = false
 
+    /// Corrección de ejes del HMD (0 = normal, 1 = +90°, 2 = -90°, 3 = 180°).
+    /// Sirve cuando el montaje del teléfono deja pitch y yaw intercambiados.
+    var axisMode = 0
+
     var onUpdate: ((Quat) -> Void)?
     var onStatus: ((String) -> Void)?
 
@@ -66,7 +70,20 @@ final class HeadMotion {
 
         // Misma cuenta que el original: conj(ref) * q, con x/y invertidos.
         let relative = base.conjugate * current
-        let output = Quat(x: -relative.x, y: -relative.y, z: relative.z, w: relative.w)
+        let corrected = Quat(x: -relative.x, y: -relative.y, z: relative.z, w: relative.w)
+
+        // Corrección de ejes: girar la orientación final sobre Z según el montaje.
+        let output: Quat
+        switch ((axisMode % 4) + 4) % 4 {
+        case 1:
+            output = Quat(x: 0, y: 0, z: 0.70710678, w: 0.70710678) * corrected
+        case 2:
+            output = Quat(x: 0, y: 0, z: -0.70710678, w: 0.70710678) * corrected
+        case 3:
+            output = Quat(x: 0, y: 0, z: 1, w: 0) * corrected
+        default:
+            output = corrected
+        }
 
         if !hasReportedData {
             hasReportedData = true

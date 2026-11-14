@@ -72,6 +72,16 @@ struct ControlPanelView: View {
             }
             .buttonStyle(GhostButtonStyle())
 
+            SettingRow(title: "Ejes del HMD",
+                       subtitle: "Si al mirar arriba va a los lados, cambiá acá") {
+                StepperControl(
+                    label: "Ejes del HMD",
+                    value: "\(state.hmdAxisMode * 90)°",
+                    onMinus: { state.hmdAxisMode = (state.hmdAxisMode + 3) % 4 },
+                    onPlus: { state.hmdAxisMode = (state.hmdAxisMode + 1) % 4 }
+                )
+            }
+
             SettingRow(title: "Barrido de prueba",
                        subtitle: "Mueve el mundo solo (diagnóstico)") {
                 Toggle("", isOn: Binding(

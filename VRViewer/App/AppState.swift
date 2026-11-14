@@ -25,6 +25,11 @@ final class AppState: ObservableObject {
     @Published var hmdEnabled = true {
         didSet { link?.setHmdEnabled(hmdEnabled); persist() }
     }
+
+    /// Corrección de ejes del HMD (0/90/180/270°). Soluciona pitch/yaw cruzados.
+    @Published var hmdAxisMode = 0 {
+        didSet { headMotion?.axisMode = hmdAxisMode; persist() }
+    }
     @Published var handsEnabled = false {
         didSet { persist() }
     }
@@ -238,6 +243,7 @@ final class AppState: ObservableObject {
     private func startHeadMotion() {
         headMotion?.stop()
         let motion = HeadMotion()
+        motion.axisMode = hmdAxisMode
         motion.onUpdate = { [weak self] quaternion in
             self?.link?.updateHmd(quaternion)
         }
@@ -374,10 +380,13 @@ final class AppState: ObservableObject {
         sixDofEnabled = enabled
         link?.setSixDofEnabled(enabled)
         if enabled {
-            // IMPORTANTE: liberar la cámara ANTES de arrancar ARKit,
-            // si no ARKit no consigue la cámara y nunca entrega poses.
+            // Liberar la cámara ANTES de ARKit. El stop de AVCaptureSession es
+            // asíncrono, así que hay que esperar antes de arrancar ARKit.
             stopHandCamera()
-            startSixDoF()
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.9) { [weak self] in
+                guard let self, self.sixDofEnabled else { return }
+                self.startSixDoF()
+            }
         } else {
             stopSixDoF()
         }
@@ -526,6 +535,7 @@ final class AppState: ObservableObject {
 
     private enum Keys {
         static let hmd = "hmdEnabled"
+        static let hmdAxis = "hmdAxisMode"
         static let hands = "handsEnabled"
         static let sixDof = "sixDofEnabled"
         static let sensitivity = "sensitivity"
@@ -544,6 +554,7 @@ final class AppState: ObservableObject {
 
     private func loadSettings() {
         if defaults.object(forKey: Keys.hmd) != nil { hmdEnabled = defaults.bool(forKey: Keys.hmd) }
+        if defaults.object(forKey: Keys.hmdAxis) != nil { hmdAxisMode = defaults.integer(forKey: Keys.hmdAxis) }
         if defaults.object(forKey: Keys.hands) != nil { handsEnabled = defaults.bool(forKey: Keys.hands) }
         if defaults.object(forKey: Keys.sixDof) != nil { sixDofEnabled = defaults.bool(forKey: Keys.sixDof) }
         if defaults.object(forKey: Keys.sensitivity) != nil { sensitivity = defaults.double(forKey: Keys.sensitivity) }
@@ -562,6 +573,7 @@ final class AppState: ObservableObject {
 
     private func persist() {
         defaults.set(hmdEnabled, forKey: Keys.hmd)
+        defaults.set(hmdAxisMode, forKey: Keys.hmdAxis)
         defaults.set(handsEnabled, forKey: Keys.hands)
         defaults.set(sixDofEnabled, forKey: Keys.sixDof)
         defaults.set(sensitivity, forKey: Keys.sensitivity)
