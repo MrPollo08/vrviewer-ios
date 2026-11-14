@@ -25,9 +25,29 @@ final class HandCamera: NSObject, AVCaptureVideoDataOutputSampleBufferDelegate {
     var onPixelBuffer: ((CVPixelBuffer) -> Void)?
     var onStatus: ((String) -> Void)?
 
+    /// Usar la cámara ultra gran angular (0.5×) si el iPhone la tiene.
+    var preferUltraWide = true
+
     private let session = AVCaptureSession()
     private let queue = DispatchQueue(label: "vr.hand-camera")
     private var isRunning = false
+
+    private func cameraDevice() -> AVCaptureDevice? {
+        let discovery = AVCaptureDevice.DiscoverySession(
+            deviceTypes: [.builtInUltraWideCamera, .builtInWideAngleCamera],
+            mediaType: .video,
+            position: .back
+        )
+
+        if preferUltraWide,
+           let ultraWide = discovery.devices.first(where: { $0.deviceType == .builtInUltraWideCamera }) {
+            return ultraWide
+        }
+        if let wide = discovery.devices.first(where: { $0.deviceType == .builtInWideAngleCamera }) {
+            return wide
+        }
+        return AVCaptureDevice.default(for: .video)
+    }
 
     func start() throws {
         guard !isRunning else { return }
@@ -38,8 +58,7 @@ final class HandCamera: NSObject, AVCaptureVideoDataOutputSampleBufferDelegate {
         session.beginConfiguration()
         session.sessionPreset = .hd1920x1080
 
-        let device = AVCaptureDevice.default(.builtInWideAngleCamera, for: .video, position: .back)
-            ?? AVCaptureDevice.default(for: .video)
+        let device = cameraDevice()
         guard let camera = device else {
             session.commitConfiguration()
             throw CameraError.noDevice
@@ -69,7 +88,8 @@ final class HandCamera: NSObject, AVCaptureVideoDataOutputSampleBufferDelegate {
         queue.async { [session] in
             session.startRunning()
         }
-        onStatus?("Cámara de tracking activa ✓")
+        let lens = camera.deviceType == .builtInUltraWideCamera ? "0.5× (gran angular)" : "1× (normal)"
+        onStatus?("Cámara de tracking: \(lens) ✓")
     }
 
     func stop() {

@@ -70,6 +70,17 @@ final class AppState: ObservableObject {
         didSet { handProcessor.gain = Float(handGain); persist() }
     }
 
+    /// Usar la cámara ultra gran angular (0.5×) para el tracking de manos.
+    @Published var useUltraWide = true {
+        didSet {
+            persist()
+            if handsEnabled, connection == .connected, sixDoF == nil {
+                stopHandCamera()
+                startHandCamera()
+            }
+        }
+    }
+
     @Published var qualityText = ""
     @Published var handStatus = ""
     @Published var diagText = ""
@@ -327,6 +338,7 @@ final class AppState: ObservableObject {
         cameraOrientation = HeldOrientation.backCameraVisionOrientation
 
         let camera = HandCamera()
+        camera.preferUltraWide = useUltraWide
         camera.onStatus = { [weak self] message in
             DispatchQueue.main.async { self?.handStatus = message }
         }
@@ -519,6 +531,7 @@ final class AppState: ObservableObject {
         static let swapHands = "swapHands"
         static let landmarkRotation = "landmarkRotation"
         static let handGain = "handGain"
+        static let ultraWide = "useUltraWide"
     }
 
     private func loadSettings() {
@@ -536,6 +549,7 @@ final class AppState: ObservableObject {
         if defaults.object(forKey: Keys.swapHands) != nil { swapHands = defaults.bool(forKey: Keys.swapHands) }
         if defaults.object(forKey: Keys.landmarkRotation) != nil { landmarkRotation = defaults.integer(forKey: Keys.landmarkRotation) }
         if defaults.object(forKey: Keys.handGain) != nil { handGain = defaults.double(forKey: Keys.handGain) }
+        if defaults.object(forKey: Keys.ultraWide) != nil { useUltraWide = defaults.bool(forKey: Keys.ultraWide) }
     }
 
     private func persist() {
@@ -553,5 +567,6 @@ final class AppState: ObservableObject {
         defaults.set(swapHands, forKey: Keys.swapHands)
         defaults.set(landmarkRotation, forKey: Keys.landmarkRotation)
         defaults.set(handGain, forKey: Keys.handGain)
+        defaults.set(useUltraWide, forKey: Keys.ultraWide)
     }
 }

@@ -129,6 +129,16 @@ struct ControlPanelView: View {
                 )
             }
 
+            SettingRow(title: "Cámara 0.5×",
+                       subtitle: "Gran angular: más campo para las manos") {
+                Toggle("", isOn: Binding(
+                    get: { state.useUltraWide },
+                    set: { state.useUltraWide = $0 }
+                ))
+                .labelsHidden()
+                .toggleStyle(SwitchToggleStyle(tint: Theme.violet))
+            }
+
             SettingRow(title: "Ganancia manos",
                        subtitle: String(format: "%.1f× · espacio recorrido", state.handGain)) {
                 StepperControl(
