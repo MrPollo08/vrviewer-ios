@@ -146,9 +146,8 @@ final class HandProcessor: NSObject {
 
     private func submitMediaPipe(_ pixelBuffer: CVPixelBuffer) {
         guard let landmarker else { return }
-        // Se declara opcional explícitamente para aceptar init failable o no.
-        let image: MPImage? = MPImage(pixelBuffer: pixelBuffer)
-        guard let image else { return }
+        // MPImage(pixelBuffer:) puede lanzar y ser failable según la versión.
+        guard let image = try? MPImage(pixelBuffer: pixelBuffer) else { return }
         let timestamp = Int(Date().timeIntervalSince1970 * 1000)
         try? landmarker.detectAsync(image: image, timestampInMilliseconds: timestamp)
     }
@@ -451,7 +450,7 @@ extension HandProcessor: HandLandmarkerLiveStreamDelegate {
 
                 var isRight: Bool?
                 if index < result.handedness.count, let category = result.handedness[index].first {
-                    let label = category.categoryName.lowercased()
+                    let label = (category.categoryName ?? "").lowercased()
                     if label.contains("right") { isRight = true }
                     else if label.contains("left") { isRight = false }
                 }
