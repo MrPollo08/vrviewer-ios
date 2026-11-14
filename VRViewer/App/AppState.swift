@@ -48,6 +48,12 @@ final class AppState: ObservableObject {
         didSet { applyLens(); persist() }
     }
 
+    /// true = el frame trae los dos ojos lado a lado (espejo de SteamVR en
+    /// modo "ambos ojos"); cada ojo recorta su mitad.
+    @Published var sideBySide = true {
+        didSet { applyLens(); persist() }
+    }
+
     @Published var resolutionIndex = 1
     @Published var bitrateMbps: Double = 6
     @Published var fpsIndex = 0
@@ -466,6 +472,7 @@ final class AppState: ObservableObject {
         videoView.separation = CGFloat(lensSeparation)
         videoView.zoom = CGFloat(lensZoom)
         videoView.verticalOffset = CGFloat(lensVertical)
+        videoView.sideBySide = sideBySide
     }
 
     func resetLens() {
@@ -499,6 +506,7 @@ final class AppState: ObservableObject {
         static let separation = "lensSeparation"
         static let zoom = "lensZoom"
         static let vertical = "lensVertical"
+        static let sideBySide = "sideBySide"
         static let resolution = "resolutionIndex"
         static let bitrate = "bitrateMbps"
         static let fps = "fpsIndex"
@@ -514,6 +522,7 @@ final class AppState: ObservableObject {
         if defaults.object(forKey: Keys.separation) != nil { lensSeparation = defaults.double(forKey: Keys.separation) }
         if defaults.object(forKey: Keys.zoom) != nil { lensZoom = defaults.double(forKey: Keys.zoom) }
         if defaults.object(forKey: Keys.vertical) != nil { lensVertical = defaults.double(forKey: Keys.vertical) }
+        if defaults.object(forKey: Keys.sideBySide) != nil { sideBySide = defaults.bool(forKey: Keys.sideBySide) }
         if defaults.object(forKey: Keys.resolution) != nil { resolutionIndex = defaults.integer(forKey: Keys.resolution) }
         if defaults.object(forKey: Keys.bitrate) != nil { bitrateMbps = defaults.double(forKey: Keys.bitrate) }
         if defaults.object(forKey: Keys.fps) != nil { fpsIndex = defaults.integer(forKey: Keys.fps) }
@@ -529,6 +538,7 @@ final class AppState: ObservableObject {
         defaults.set(lensSeparation, forKey: Keys.separation)
         defaults.set(lensZoom, forKey: Keys.zoom)
         defaults.set(lensVertical, forKey: Keys.vertical)
+        defaults.set(sideBySide, forKey: Keys.sideBySide)
         defaults.set(resolutionIndex, forKey: Keys.resolution)
         defaults.set(bitrateMbps, forKey: Keys.bitrate)
         defaults.set(fpsIndex, forKey: Keys.fps)

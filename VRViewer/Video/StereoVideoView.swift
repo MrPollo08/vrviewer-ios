@@ -2,11 +2,15 @@ import AVFoundation
 import CoreMedia
 import UIKit
 
-/// Render estéreo SBS: dos capas `AVSampleBufferDisplayLayer` (una por ojo)
-/// que reciben el mismo frame del PC con un desplazamiento horizontal
-/// (paralaje) y zoom ajustables, igual que el renderer del original.
+/// Render estéreo: dos capas `AVSampleBufferDisplayLayer` (una por ojo).
+///
+/// - `sideBySide = false`: el frame es mono y se muestra completo en cada ojo.
+/// - `sideBySide = true`: el frame trae los dos ojos lado a lado (lo que manda
+///   el espejo de SteamVR en modo "ambos ojos") y cada ojo recorta su mitad.
 final class StereoVideoView: UIView {
 
+    private let leftContainer = UIView()
+    private let rightContainer = UIView()
     private let leftLayer = AVSampleBufferDisplayLayer()
     private let rightLayer = AVSampleBufferDisplayLayer()
 
@@ -25,17 +29,33 @@ final class StereoVideoView: UIView {
         didSet { updateTransforms() }
     }
 
+    /// true = el frame trae los dos ojos lado a lado.
+    var sideBySide: Bool = true {
+        didSet { setNeedsLayout() }
+    }
+
     override init(frame: CGRect) {
         super.init(frame: frame)
         backgroundColor = .black
         isUserInteractionEnabled = false
 
+        for container in [leftContainer, rightContainer] {
+            container.backgroundColor = .black
+            container.clipsToBounds = true
+            container.isUserInteractionEnabled = false
+            addSubview(container)
+        }
+
         for displayLayer in [leftLayer, rightLayer] {
+            // `.resizeAspect` mantiene la proporción; el recorte de cada ojo
+            // sigue alineado porque la capa está centrada en el punto de corte.
             displayLayer.videoGravity = .resizeAspect
             displayLayer.backgroundColor = UIColor.black.cgColor
             displayLayer.preventsDisplaySleepDuringVideoPlayback = true
-            layer.addSublayer(displayLayer)
         }
+
+        leftContainer.layer.addSublayer(leftLayer)
+        rightContainer.layer.addSublayer(rightLayer)
     }
 
     required init?(coder: NSCoder) {
@@ -45,11 +65,27 @@ final class StereoVideoView: UIView {
     override func layoutSubviews() {
         super.layoutSubviews()
 
+        let halfWidth = bounds.width / 2
+        guard halfWidth > 0 else { return }
+
         CATransaction.begin()
         CATransaction.setDisableActions(true)
-        let halfWidth = bounds.width / 2
-        leftLayer.frame = CGRect(x: 0, y: 0, width: halfWidth, height: bounds.height)
-        rightLayer.frame = CGRect(x: halfWidth, y: 0, width: halfWidth, height: bounds.height)
+
+        leftContainer.frame = CGRect(x: 0, y: 0, width: halfWidth, height: bounds.height)
+        rightContainer.frame = CGRect(x: halfWidth, y: 0, width: halfWidth, height: bounds.height)
+
+        let containerBounds = CGRect(x: 0, y: 0, width: halfWidth, height: bounds.height)
+
+        if sideBySide {
+            // La imagen mide el doble: el ojo izquierdo ve la mitad izquierda
+            // y el derecho la mitad derecha.
+            leftLayer.frame = CGRect(x: 0, y: 0, width: halfWidth * 2, height: bounds.height)
+            rightLayer.frame = CGRect(x: -halfWidth, y: 0, width: halfWidth * 2, height: bounds.height)
+        } else {
+            leftLayer.frame = containerBounds
+            rightLayer.frame = containerBounds
+        }
+
         CATransaction.commit()
 
         updateTransforms()
@@ -65,8 +101,8 @@ final class StereoVideoView: UIView {
 
         CATransaction.begin()
         CATransaction.setDisableActions(true)
-        leftLayer.transform = CATransform3DConcat(CATransform3DMakeTranslation(dx, dy, 0), scale)
-        rightLayer.transform = CATransform3DConcat(CATransform3DMakeTranslation(-dx, dy, 0), scale)
+        leftContainer.transform = CATransform3DConcat(CATransform3DMakeTranslation(dx, dy, 0), scale)
+        rightContainer.transform = CATransform3DConcat(CATransform3DMakeTranslation(-dx, dy, 0), scale)
         CATransaction.commit()
     }
 

@@ -10,6 +10,7 @@ struct StereoVideoLayer: UIViewRepresentable {
         view.separation = CGFloat(state.lensSeparation)
         view.zoom = CGFloat(state.lensZoom)
         view.verticalOffset = CGFloat(state.lensVertical)
+        view.sideBySide = state.sideBySide
         return view
     }
 
@@ -17,6 +18,7 @@ struct StereoVideoLayer: UIViewRepresentable {
         uiView.separation = CGFloat(state.lensSeparation)
         uiView.zoom = CGFloat(state.lensZoom)
         uiView.verticalOffset = CGFloat(state.lensVertical)
+        uiView.sideBySide = state.sideBySide
     }
 
     static func dismantleUIView(_ uiView: StereoVideoView, coordinator: ()) {
@@ -213,9 +215,17 @@ struct StreamView: View {
             )
 
             Button {
+                state.sideBySide.toggle()
+            } label: {
+                Text(state.sideBySide ? "SBS" : "Mono")
+                    .frame(width: 44)
+            }
+            .buttonStyle(GhostButtonStyle(tint: state.sideBySide ? Theme.indigo : Theme.textSecondary))
+
+            Button {
                 state.resetLens()
             } label: {
-                Text("↺ Restablecer")
+                Text("↺")
             }
             .buttonStyle(GhostButtonStyle())
         }
