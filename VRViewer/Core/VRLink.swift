@@ -198,9 +198,12 @@ final class VRLink {
         }
 
         let token = Array(tokenPacket[4..<8])
+        // OJO: el tracking va al puerto de DATOS (47291), no al de auth (47292).
+        // Se resuelve fuera del lock porque puede lanzar error.
+        let resolvedDataAddress = try UDPSocket.address(host: host, port: VRPackets.dataPort)
         lock.lock()
         tokenBytes = token
-        dataAddress = address
+        dataAddress = resolvedDataAddress
         lock.unlock()
     }
 
