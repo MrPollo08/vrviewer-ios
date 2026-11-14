@@ -25,8 +25,8 @@ final class HandProcessor: NSObject {
     var landmarkRotation = 0
     /// Multiplicador del espacio recorrido por las manos (0.5 … 2.0).
     var gain: Float = 1.0
-    /// Orientación con la que MediaPipe debe interpretar el frame de cámara.
-    var uiOrientation: UIImage.Orientation = .up
+    /// Rotación base (0..3) según cómo esté montado el teléfono.
+    var baseRotation = 0
 
     private let queue = DispatchQueue(label: "vr.hand-processor")
     private let sequenceHandler = VNSequenceRequestHandler()
@@ -154,11 +154,7 @@ final class HandProcessor: NSObject {
         guard let landmarker else { return }
         // MPImage(pixelBuffer:) puede lanzar y ser failable según la versión.
         guard let image = try? MPImage(pixelBuffer: pixelBuffer) else { return }
-        // Sin esto MediaPipe interpreta el buffer del sensor tal cual y las
-        // coordenadas salen giradas (la mano se mueve en ejes equivocados).
-        image.orientation = uiOrientation
-        // MediaPipe exige timestamps estrictamente crecientes; si se repiten,
-        // descarta el frame (eso producía huecos y "parpadeos").
+        // La rotación se aplica a los landmarks (MPImage.orientation es de solo lectura).
         let raw = Int(Date().timeIntervalSince1970 * 1000)
         lastTimestampMs = max(raw, lastTimestampMs + 1)
         try? landmarker.detectAsync(image: image, timestampInMilliseconds: lastTimestampMs)
@@ -226,7 +222,8 @@ final class HandProcessor: NSObject {
 
             var x = Float(found.location.x)
             var y = Float(1 - found.location.y)
-            rotate(x: &x, y: &y)
+            // Vision ya aplica la orientación de la imagen; solo el ajuste manual.
+            rotate(x: &x, y: &y, steps: landmarkRotation)
 
             result.append((x, y, 0))
         }
@@ -358,9 +355,9 @@ final class HandProcessor: NSObject {
         return pose
     }
 
-    /// Rota (x, y) alrededor del centro según `landmarkRotation`.
-    private func rotate(x: inout Float, y: inout Float) {
-        switch ((landmarkRotation % 4) + 4) % 4 {
+    /// Rota (x, y) alrededor del centro `steps` × 90°.
+    private func rotate(x: inout Float, y: inout Float, steps: Int) {
+        switch ((steps % 4) + 4) % 4 {
         case 1:
             let nx = y
             let ny = 1 - x
@@ -480,7 +477,7 @@ extension HandProcessor: HandLandmarkerLiveStreamDelegate {
                 for landmark in handLandmarks {
                     var x = Float(landmark.x)
                     var y = Float(landmark.y)   // MediaPipe ya usa origen arriba-izquierda
-                    self.rotate(x: &x, y: &y)
+                    self.rotate(x: &x, y: &y, steps: self.baseRotation + self.landmarkRotation)
                     points.append((x, y, Float(landmark.z)))
                 }
 
@@ -518,14 +515,15 @@ enum HeldOrientation {
         }
     }
 
-    /// La misma orientación, en el tipo que usa MediaPipe (UIImage).
-    static var uiOrientation: UIImage.Orientation {
-        switch backCameraVisionOrientation {
-        case .up: return .up
-        case .down: return .down
-        case .left: return .left
-        case .right: return .right
-        default: return .up
+    /// Rotación (en pasos de 90°) que hay que aplicar a los landmarks de MediaPipe
+    /// según la orientación de la interfaz.
+    static var mediaPipeRotationSteps: Int {
+        switch interfaceOrientation {
+        case .landscapeRight: return 0
+        case .landscapeLeft: return 2
+        case .portrait: return 1
+        case .portraitUpsideDown: return 3
+        default: return 0
         }
     }
 }

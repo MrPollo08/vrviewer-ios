@@ -322,7 +322,7 @@ final class AppState: ObservableObject {
         handProcessor.onHands = { [weak self] left, right in
             self?.link?.updateHands(left: left, right: right)
         }
-        handProcessor.uiOrientation = HeldOrientation.uiOrientation
+        handProcessor.baseRotation = HeldOrientation.mediaPipeRotationSteps
         handProcessor.start()
         handStatus = "Manos: buscando…"
 
