@@ -36,7 +36,7 @@ final class HandCamera: NSObject, AVCaptureVideoDataOutputSampleBufferDelegate {
         }
 
         session.beginConfiguration()
-        session.sessionPreset = .hd1280x720
+        session.sessionPreset = .hd1920x1080
 
         let device = AVCaptureDevice.default(.builtInWideAngleCamera, for: .video, position: .back)
             ?? AVCaptureDevice.default(for: .video)

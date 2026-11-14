@@ -129,6 +129,16 @@ struct ControlPanelView: View {
                 )
             }
 
+            SettingRow(title: "Ganancia manos",
+                       subtitle: String(format: "%.1f× · espacio recorrido", state.handGain)) {
+                StepperControl(
+                    label: "Ganancia manos",
+                    value: String(format: "%.1f", state.handGain),
+                    onMinus: { state.handGain = max(0.5, state.handGain - 0.1) },
+                    onPlus: { state.handGain = min(2.0, state.handGain + 0.1) }
+                )
+            }
+
             if !state.handStatus.isEmpty {
                 Text(state.handStatus)
                     .font(.system(size: 9))

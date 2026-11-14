@@ -65,6 +65,11 @@ final class AppState: ObservableObject {
         didSet { handProcessor.landmarkRotation = landmarkRotation; persist() }
     }
 
+    /// Ganancia del espacio recorrido por las manos (0.5 … 2.0).
+    @Published var handGain: Double = 1.0 {
+        didSet { handProcessor.gain = Float(handGain); persist() }
+    }
+
     @Published var qualityText = ""
     @Published var handStatus = ""
     @Published var diagText = ""
@@ -98,6 +103,7 @@ final class AppState: ObservableObject {
         loadSettings()
         handProcessor.swapHands = swapHands
         handProcessor.landmarkRotation = landmarkRotation
+        handProcessor.gain = Float(handGain)
         handProcessor.onStatus = { [weak self] message in
             DispatchQueue.main.async { self?.handStatus = message }
         }
@@ -512,6 +518,7 @@ final class AppState: ObservableObject {
         static let fps = "fpsIndex"
         static let swapHands = "swapHands"
         static let landmarkRotation = "landmarkRotation"
+        static let handGain = "handGain"
     }
 
     private func loadSettings() {
@@ -528,6 +535,7 @@ final class AppState: ObservableObject {
         if defaults.object(forKey: Keys.fps) != nil { fpsIndex = defaults.integer(forKey: Keys.fps) }
         if defaults.object(forKey: Keys.swapHands) != nil { swapHands = defaults.bool(forKey: Keys.swapHands) }
         if defaults.object(forKey: Keys.landmarkRotation) != nil { landmarkRotation = defaults.integer(forKey: Keys.landmarkRotation) }
+        if defaults.object(forKey: Keys.handGain) != nil { handGain = defaults.double(forKey: Keys.handGain) }
     }
 
     private func persist() {
@@ -544,5 +552,6 @@ final class AppState: ObservableObject {
         defaults.set(fpsIndex, forKey: Keys.fps)
         defaults.set(swapHands, forKey: Keys.swapHands)
         defaults.set(landmarkRotation, forKey: Keys.landmarkRotation)
+        defaults.set(handGain, forKey: Keys.handGain)
     }
 }
