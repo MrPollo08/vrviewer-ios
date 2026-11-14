@@ -27,6 +27,7 @@ final class HandProcessor: NSObject {
     var gain: Float = 1.0
 
     private let queue = DispatchQueue(label: "vr.hand-processor")
+    private let sequenceHandler = VNSequenceRequestHandler()
     private let leftSmoother = HandPoseSmoother()
     private let rightSmoother = HandPoseSmoother()
     private let leftClick = PinchClickDetector()
@@ -157,11 +158,10 @@ final class HandProcessor: NSObject {
         let request = VNDetectHumanHandPoseRequest()
         request.maximumHandCount = 2
 
-        let handler = VNImageRequestHandler(cvPixelBuffer: pixelBuffer,
-                                            orientation: orientation,
-                                            options: [:])
         do {
-            try handler.perform([request])
+            // VNSequenceRequestHandler mantiene el tracking entre frames (mucho
+            // menos temblor que VNImageRequestHandler, que empieza de cero).
+            try sequenceHandler.perform([request], on: pixelBuffer, orientation: orientation)
         } catch {
             if !reportedError {
                 reportedError = true
@@ -176,10 +176,19 @@ final class HandProcessor: NSObject {
             guard let detected = visionLandmarks(from: observation) else { continue }
             guard detected.palmConfidence >= Self.minPalmConfidence else { continue }
 
+            var isRight: Bool?
+            if #available(iOS 17.0, *) {
+                switch observation.chirality {
+                case .right: isRight = true
+                case .left: isRight = false
+                default: break
+                }
+            }
+
             let pose = makePose(from: detected.points)
             candidates.append(Candidate(pose: pose,
                                         wrist: (detected.points[0].0, detected.points[0].1),
-                                        isRight: nil))
+                                        isRight: isRight))
         }
 
         publish(candidates)
