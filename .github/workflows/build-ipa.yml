@@ -30,12 +30,30 @@ jobs:
       - name: Generate Xcode project
         run: xcodegen generate
 
+      - name: Install CocoaPods
+        run: |
+          gem install cocoapods --user-install --no-document || sudo gem install cocoapods --no-document
+          export PATH="$HOME/.gem/ruby/*/bin:$PATH"
+          pod --version || true
+          # Si el gem falla, usar el cocoapods que ya trae el runner
+          which pod || echo "sin pod"
+
+      - name: Pod install (MediaPipe)
+        run: |
+          export PATH="$HOME/.gem/ruby/*/bin:$PATH"
+          (pod install --repo-update || pod install) || echo "POD_INSTALL_FALLO"
+          ls -d VRViewer.xcworkspace 2>/dev/null && echo "WORKSPACE_OK" || echo "SIN_WORKSPACE"
+
       - name: Build (unsigned)
         run: |
           set -o pipefail
+          if [ -d "VRViewer.xcworkspace" ]; then
+            BUILD_ARGS="-workspace VRViewer.xcworkspace -scheme VRViewer"
+          else
+            BUILD_ARGS="-project VRViewer.xcodeproj -target VRViewer"
+          fi
           xcodebuild \
-            -project VRViewer.xcodeproj \
-            -target VRViewer \
+            $BUILD_ARGS \
             -configuration Release \
             -sdk iphoneos \
             SYMROOT=build \
