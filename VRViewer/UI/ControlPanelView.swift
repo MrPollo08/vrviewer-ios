@@ -72,6 +72,24 @@ struct ControlPanelView: View {
             }
             .buttonStyle(GhostButtonStyle())
 
+            SettingRow(title: "Barrido de prueba",
+                       subtitle: "Mueve el mundo solo (diagnóstico)") {
+                Toggle("", isOn: Binding(
+                    get: { state.sweepEnabled },
+                    set: { state.sweepEnabled = $0 }
+                ))
+                .labelsHidden()
+                .toggleStyle(SwitchToggleStyle(tint: Theme.amber))
+            }
+
+            if !state.diagText.isEmpty {
+                Text(state.diagText)
+                    .font(.system(size: 9, design: .monospaced))
+                    .foregroundColor(Theme.textTertiary)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.7)
+            }
+
             Spacer(minLength: 0)
         }
         .frame(maxWidth: .infinity, alignment: .leading)

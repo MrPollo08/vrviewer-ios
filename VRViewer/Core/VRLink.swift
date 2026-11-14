@@ -17,6 +17,7 @@ final class VRLink {
         var sixDof: HeadPose6DoF?
         var hmdEnabled = false
         var sixDofEnabled = false
+        var sweep = false
     }
 
     enum LinkError: LocalizedError {
@@ -45,6 +46,25 @@ final class VRLink {
     private var dataAddress: sockaddr_in?
     private var controlSocket: UDPSocket?
     private var hasReportedResult = false
+    private var sentCount = 0
+    private let startedAt = Date()
+
+    /// Paquetes enviados desde que arrancó el enlace (diagnóstico).
+    var totalSent: Int {
+        lock.lock(); defer { lock.unlock() }
+        return sentCount
+    }
+
+    /// Último cuaternión de HMD (diagnóstico).
+    var currentHmd: Quat {
+        lock.lock(); defer { lock.unlock() }
+        return snapshot.hmd
+    }
+
+    /// Barrido automático de yaw: sirve para comprobar si el PC recibe poses.
+    func setSweep(_ enabled: Bool) {
+        lock.lock(); snapshot.sweep = enabled; lock.unlock()
+    }
 
     private static let sentinel = "CVRHELLO"
 
@@ -228,18 +248,30 @@ final class VRLink {
             let token = tokenBytes
             lock.unlock()
 
+            var hmd = snap.hmd
+            var hmdEnabled = snap.hmdEnabled
+
+            if snap.sweep {
+                let elapsed = Float(Date().timeIntervalSince(startedAt))
+                let yaw = sin(elapsed * 1.0) * 0.9
+                hmd = Quat(x: 0, y: sin(yaw / 2), z: 0, w: cos(yaw / 2))
+                hmdEnabled = true
+            }
+
             let packet = VRPackets.dataPacket(
                 token: token,
                 left: snap.left,
                 right: snap.right,
                 leftPad: snap.leftPad,
                 rightPad: snap.rightPad,
-                hmd: snap.hmd,
-                hmdEnabled: snap.hmdEnabled,
+                hmd: hmd,
+                hmdEnabled: hmdEnabled,
                 sixDof: snap.sixDof,
                 sixDofEnabled: snap.sixDofEnabled
             )
             socket.send(packet, to: address)
+
+            lock.lock(); sentCount += 1; lock.unlock()
             usleep(11_000) // ~90 Hz, igual que el original
         }
     }

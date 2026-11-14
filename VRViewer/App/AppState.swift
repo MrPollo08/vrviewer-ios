@@ -61,6 +61,14 @@ final class AppState: ObservableObject {
 
     @Published var qualityText = ""
     @Published var handStatus = ""
+    @Published var diagText = ""
+    @Published var sweepEnabled = false {
+        didSet { link?.setSweep(sweepEnabled) }
+    }
+
+    private var diagTimer: Timer?
+    private var lastSentCount = 0
+    private var gyroStatus = "sin datos"
 
     weak var videoView: StereoVideoView?
 
@@ -133,9 +141,11 @@ final class AppState: ObservableObject {
         self.link = link
         link.setHmdEnabled(hmdEnabled)
         link.setSixDofEnabled(sixDofEnabled)
+        link.setSweep(sweepEnabled)
         link.start()
 
         startHeadMotion()
+        startDiagnostics()
     }
 
     private func handleConnected(ip: String) {
@@ -151,6 +161,7 @@ final class AppState: ObservableObject {
         stopStream()
         stopHandTracking()
         stopSixDoF()
+        stopDiagnostics()
         headMotion?.stop()
         headMotion = nil
         link?.stop()
@@ -208,10 +219,38 @@ final class AppState: ObservableObject {
             self?.link?.updateHmd(quaternion)
         }
         motion.onStatus = { [weak self] message in
-            DispatchQueue.main.async { self?.statusText = message }
+            DispatchQueue.main.async {
+                guard let self else { return }
+                self.gyroStatus = message
+                self.statusText = message
+            }
         }
         motion.start()
         headMotion = motion
+    }
+
+    private func startDiagnostics() {
+        diagTimer?.invalidate()
+        lastSentCount = link?.totalSent ?? 0
+        diagText = "esperando paquetes…"
+
+        let timer = Timer(timeInterval: 0.5, repeats: true) { [weak self] _ in
+            guard let self, let link = self.link else { return }
+            let total = link.totalSent
+            let rate = (total - self.lastSentCount) * 2
+            self.lastSentCount = total
+            let q = link.currentHmd
+            let numbers = String(format: "tx %d/s  q %.2f %.2f %.2f %.2f", rate, q.x, q.y, q.z, q.w)
+            self.diagText = numbers + "  " + self.gyroStatus
+        }
+        RunLoop.main.add(timer, forMode: .common)
+        diagTimer = timer
+    }
+
+    private func stopDiagnostics() {
+        diagTimer?.invalidate()
+        diagTimer = nil
+        diagText = ""
     }
 
     func recenter() {
@@ -442,6 +481,7 @@ final class AppState: ObservableObject {
         stopStream()
         stopHandTracking()
         stopSixDoF()
+        stopDiagnostics()
         headMotion?.stop()
         link?.stop()
         link = nil

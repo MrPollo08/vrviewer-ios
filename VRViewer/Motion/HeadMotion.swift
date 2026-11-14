@@ -15,6 +15,7 @@ final class HeadMotion {
 
     private let lock = NSLock()
     private var reference: Quat?
+    private var hasReportedData = false
 
     var onUpdate: ((Quat) -> Void)?
     var onStatus: ((String) -> Void)?
@@ -31,8 +32,13 @@ final class HeadMotion {
         manager.deviceMotionUpdateInterval = 1.0 / 90.0
         manager.startDeviceMotionUpdates(using: .xArbitraryZVertical,
                                          to: queue,
-                                         withHandler: { [weak self] motion, _ in
-            guard let self, let motion else { return }
+                                         withHandler: { [weak self] motion, error in
+            guard let self else { return }
+            if let error {
+                self.onStatus?("Giroscopio: \(error.localizedDescription)")
+                return
+            }
+            guard let motion else { return }
             self.handle(motion)
         })
     }
@@ -48,21 +54,10 @@ final class HeadMotion {
     }
 
     private func handle(_ motion: CMDeviceMotion) {
-        let matrix = motion.attitude.rotationMatrix
-
-        var flat = [Float](repeating: 0, count: 9)
-        flat[0] = Float(matrix.m11)
-        flat[1] = Float(matrix.m12)
-        flat[2] = Float(matrix.m13)
-        flat[3] = Float(matrix.m21)
-        flat[4] = Float(matrix.m22)
-        flat[5] = Float(matrix.m23)
-        flat[6] = Float(matrix.m31)
-        flat[7] = Float(matrix.m32)
-        flat[8] = Float(matrix.m33)
-
-        let remapped = VRMath.remapMinusYAxisX(flat)
-        let current = VRMath.quaternion(fromMatrix: remapped)
+        // Se usa el cuaternión del attitude directamente (mismo sistema de
+        // referencia que el vector de rotación de Android).
+        let a = motion.attitude.quaternion
+        let current = Quat(x: Float(a.x), y: Float(a.y), z: Float(a.z), w: Float(a.w))
 
         lock.lock()
         if reference == nil { reference = current }
@@ -72,6 +67,11 @@ final class HeadMotion {
         // Misma cuenta que el original: conj(ref) * q, con x/y invertidos.
         let relative = base.conjugate * current
         let output = Quat(x: -relative.x, y: -relative.y, z: relative.z, w: relative.w)
+
+        if !hasReportedData {
+            hasReportedData = true
+            onStatus?("Giroscopio: datos OK")
+        }
         onUpdate?(output)
     }
 }
