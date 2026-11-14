@@ -42,10 +42,15 @@ final class HandProcessor: NSObject {
 
     private var lastProcessedAt: CFTimeInterval = 0
     private let visionInterval: CFTimeInterval = 1.0 / 30.0
-    private let mediaPipeInterval: CFTimeInterval = 1.0 / 30.0
+    private let mediaPipeInterval: CFTimeInterval = 1.0 / 60.0
     private var reportedError = false
     private var isRunning = false
     private var usingMediaPipe = false
+
+    /// Período de gracia: si una mano parpadea se mantiene su última pose.
+    private var lastLeftSeenAt: CFTimeInterval = 0
+    private var lastRightSeenAt: CFTimeInterval = 0
+    private let graceInterval: CFTimeInterval = 0.15
 
     #if canImport(MediaPipeTasksVision)
     private var landmarker: HandLandmarker?
@@ -235,6 +240,7 @@ final class HandProcessor: NSObject {
 
         var left: HandPose
         var right: HandPose
+        let now = CACurrentMediaTime()
 
         if let candidate = leftCandidate {
             var pose = candidate.pose
@@ -244,6 +250,11 @@ final class HandProcessor: NSObject {
             if leftClick.update(pinch: pose.pinch) { pose.clicked = true }
             left = stabilize(pose, previous: publishedLeft)
             lastLeftWrist = candidate.wrist
+            lastLeftSeenAt = now
+        } else if now - lastLeftSeenAt < graceInterval, publishedLeft.tracked {
+            // Parpadeo de detección: se mantiene la última pose conocida.
+            left = publishedLeft
+            left.clicked = false
         } else {
             left = .untracked(defaultX: -0.35)
             leftSmoother.reset()
@@ -259,6 +270,10 @@ final class HandProcessor: NSObject {
             if rightClick.update(pinch: pose.pinch) { pose.clicked = true }
             right = stabilize(pose, previous: publishedRight)
             lastRightWrist = candidate.wrist
+            lastRightSeenAt = now
+        } else if now - lastRightSeenAt < graceInterval, publishedRight.tracked {
+            right = publishedRight
+            right.clicked = false
         } else {
             right = .untracked(defaultX: 0.35)
             rightSmoother.reset()
@@ -371,15 +386,35 @@ final class HandProcessor: NSObject {
         let p0 = landmarkVR(0)
         let p9 = landmarkVR(9)
         let p5 = landmarkVR(5)
+        let p13 = landmarkVR(13)
         let p17 = landmarkVR(17)
 
-        let fwd = VRMath.normalize3([p9[0] - p0[0], p9[1] - p0[1], p9[2] - p0[2]])
-        let side = VRMath.normalize3([p5[0] - p17[0], p5[1] - p17[1], p5[2] - p17[2]])
-        let up = VRMath.normalize3(VRMath.cross3(fwd, side))
-        let sideN = VRMath.normalize3(VRMath.cross3(up, fwd))
+        func sub(_ a: [Float], _ b: [Float]) -> [Float] {
+            [a[0] - b[0], a[1] - b[1], a[2] - b[2]]
+        }
+
+        let fwd = VRMath.normalize3(sub(p9, p0))
+        let sideRef = VRMath.normalize3(sub(p5, p17))
+
+        // Normal de la palma promediando tres productos vectoriales: mucho más
+        // estable que usar un solo par de puntos.
+        let n1 = VRMath.cross3(sub(p5, p0), sub(p17, p0))
+        let n2 = VRMath.cross3(sub(p9, p0), sub(p17, p0))
+        let n3 = VRMath.cross3(sub(p13, p0), sub(p17, p0))
+        var upN = VRMath.normalize3([n1[0] + n2[0] + n3[0],
+                                     n1[1] + n2[1] + n3[1],
+                                     n1[2] + n2[2] + n3[2]])
+
+        // Mantener el mismo sentido que la convención anterior.
+        if VRMath.dot3(upN, VRMath.cross3(fwd, sideRef)) < 0 {
+            upN = [-upN[0], -upN[1], -upN[2]]
+        }
+
+        let sideN = VRMath.normalize3(VRMath.cross3(upN, fwd))
+        let upFinal = VRMath.normalize3(VRMath.cross3(fwd, sideN))
 
         let quat = VRMath.quaternion(xAxis: sideN,
-                                     yAxis: up,
+                                     yAxis: upFinal,
                                      zAxis: [-fwd[0], -fwd[1], -fwd[2]])
 
         let (grip, pinch) = HandGestures.compute(landmarks)

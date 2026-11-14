@@ -48,15 +48,16 @@ jobs:
         run: |
           set -o pipefail
           if [ -d "VRViewer.xcworkspace" ]; then
-            BUILD_ARGS="-workspace VRViewer.xcworkspace -scheme VRViewer"
+            PROJECT_ARG="-workspace VRViewer.xcworkspace"
           else
-            BUILD_ARGS="-project VRViewer.xcodeproj -target VRViewer"
+            PROJECT_ARG="-project VRViewer.xcodeproj"
           fi
           xcodebuild \
-            $BUILD_ARGS \
+            $PROJECT_ARG \
+            -scheme VRViewer \
             -configuration Release \
             -sdk iphoneos \
-            SYMROOT=build \
+            -derivedDataPath build \
             CODE_SIGN_IDENTITY="" \
             CODE_SIGNING_REQUIRED=NO \
             CODE_SIGNING_ALLOWED=NO \

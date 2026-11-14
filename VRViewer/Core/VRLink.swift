@@ -49,6 +49,13 @@ final class VRLink {
     private var sentCount = 0
     private let startedAt = Date()
 
+    // Estado para interpolar las manos a 90 Hz (se detectan a ~30 fps).
+    private var targetLeft = HandPose.untracked(defaultX: -0.35)
+    private var targetRight = HandPose.untracked(defaultX: 0.35)
+    private var smoothLeft = HandPose.untracked(defaultX: -0.35)
+    private var smoothRight = HandPose.untracked(defaultX: 0.35)
+    private var handStateReady = false
+
     /// Paquetes enviados desde que arrancó el enlace (diagnóstico).
     var totalSent: Int {
         lock.lock(); defer { lock.unlock() }
@@ -90,7 +97,12 @@ final class VRLink {
     }
 
     func updateHands(left: HandPose, right: HandPose) {
-        lock.lock(); snapshot.left = left; snapshot.right = right; lock.unlock()
+        lock.lock()
+        snapshot.left = left
+        snapshot.right = right
+        targetLeft = left
+        targetRight = right
+        lock.unlock()
     }
 
     func updateHmd(_ quaternion: Quat) {
@@ -249,6 +261,19 @@ final class VRLink {
             lock.lock()
             let snap = snapshot
             let token = tokenBytes
+
+            // Interpolación a 90 Hz: la detección llega a ~30-60 fps, pero el
+            // paquete sale a 90 Hz. Sin esto los controllers van a saltos.
+            if !handStateReady {
+                smoothLeft = targetLeft
+                smoothRight = targetRight
+                handStateReady = true
+            } else {
+                smoothLeft = VRMath.interpolate(from: smoothLeft, to: targetLeft, factor: 0.45)
+                smoothRight = VRMath.interpolate(from: smoothRight, to: targetRight, factor: 0.45)
+            }
+            let leftHand = smoothLeft
+            let rightHand = smoothRight
             lock.unlock()
 
             var hmd = snap.hmd
@@ -263,8 +288,8 @@ final class VRLink {
 
             let packet = VRPackets.dataPacket(
                 token: token,
-                left: snap.left,
-                right: snap.right,
+                left: leftHand,
+                right: rightHand,
                 leftPad: snap.leftPad,
                 rightPad: snap.rightPad,
                 hmd: hmd,

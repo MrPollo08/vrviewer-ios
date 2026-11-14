@@ -82,6 +82,50 @@ enum VRMath {
         return [v[0] / len, v[1] / len, v[2] / len]
     }
 
+    /// Interpolación esférica entre dos cuaterniones.
+    static func slerp(_ a: Quat, _ b: Quat, _ t: Float) -> Quat {
+        var dot = a.dot(b)
+        var target = b
+        if dot < 0 {
+            target = Quat(x: -b.x, y: -b.y, z: -b.z, w: -b.w)
+            dot = -dot
+        }
+        if dot > 0.9995 {
+            return Quat(x: a.x + (target.x - a.x) * t,
+                        y: a.y + (target.y - a.y) * t,
+                        z: a.z + (target.z - a.z) * t,
+                        w: a.w + (target.w - a.w) * t).normalized
+        }
+        let theta0 = acos(clamp(dot, -1, 1))
+        let theta = theta0 * t
+        let sinTheta0 = sin(theta0)
+        guard abs(sinTheta0) > 1e-6 else { return b }
+        let s0 = cos(theta) - dot * sin(theta) / sinTheta0
+        let s1 = sin(theta) / sinTheta0
+        return Quat(x: s0 * a.x + s1 * target.x,
+                    y: s0 * a.y + s1 * target.y,
+                    z: s0 * a.z + s1 * target.z,
+                    w: s0 * a.w + s1 * target.w).normalized
+    }
+
+    /// Avanza una pose de mano hacia otra (posición, cuaternión y gestos).
+    static func interpolate(from a: HandPose, to b: HandPose, factor t: Float) -> HandPose {
+        guard b.tracked else { return b }
+        var out = b
+        out.x = a.x + (b.x - a.x) * t
+        out.y = a.y + (b.y - a.y) * t
+        out.z = a.z + (b.z - a.z) * t
+        out.quat = slerp(a.quat, b.quat, t)
+        out.grip = a.grip + (b.grip - a.grip) * t
+        out.pinch = a.pinch + (b.pinch - a.pinch) * t
+        out.curlThumb = a.curlThumb + (b.curlThumb - a.curlThumb) * t
+        out.curlIndex = a.curlIndex + (b.curlIndex - a.curlIndex) * t
+        out.curlMiddle = a.curlMiddle + (b.curlMiddle - a.curlMiddle) * t
+        out.curlRing = a.curlRing + (b.curlRing - a.curlRing) * t
+        out.curlPinky = a.curlPinky + (b.curlPinky - a.curlPinky) * t
+        return out
+    }
+
     /// Base ortonormal (x, y, z) -> cuaternión.
     static func quaternion(xAxis: [Float], yAxis: [Float], zAxis: [Float]) -> Quat {
         let m: [Float] = [
