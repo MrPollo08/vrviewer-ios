@@ -35,11 +35,10 @@ jobs:
           set -o pipefail
           xcodebuild \
             -project VRViewer.xcodeproj \
-            -scheme VRViewer \
+            -target VRViewer \
             -configuration Release \
             -sdk iphoneos \
             -derivedDataPath build \
-            -destination 'generic/platform=iOS' \
             CODE_SIGN_IDENTITY="" \
             CODE_SIGNING_REQUIRED=NO \
             CODE_SIGNING_ALLOWED=NO \

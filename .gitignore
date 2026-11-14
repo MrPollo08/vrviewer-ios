@@ -1,0 +1,15 @@
+# Xcode / build
+build/
+DerivedData/
+*.xcodeproj
+*.xcworkspace
+xcodebuild.log
+xcuserdata/
+*.ipa
+Payload/
+
+# macOS
+.DS_Store
+
+# Sesión
+*.swp
