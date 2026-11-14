@@ -1,0 +1,77 @@
+name: Build IPA
+
+# Compila la app en un runner macOS de GitHub y publica un .ipa sin firmar
+# como artifact descargable. No hace falta tener un Mac.
+
+on:
+  push:
+    branches: ["**"]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  build:
+    name: Build unsigned IPA
+    runs-on: macos-14
+    timeout-minutes: 40
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Show Xcode version
+        run: |
+          xcodebuild -version
+          xcrun --sdk iphoneos --show-sdk-version
+
+      - name: Install XcodeGen
+        run: brew install xcodegen
+
+      - name: Generate Xcode project
+        run: xcodegen generate
+
+      - name: Build (unsigned)
+        run: |
+          set -o pipefail
+          xcodebuild \
+            -project VRViewer.xcodeproj \
+            -scheme VRViewer \
+            -configuration Release \
+            -sdk iphoneos \
+            -derivedDataPath build \
+            -destination 'generic/platform=iOS' \
+            CODE_SIGN_IDENTITY="" \
+            CODE_SIGNING_REQUIRED=NO \
+            CODE_SIGNING_ALLOWED=NO \
+            ENABLE_BITCODE=NO \
+            build | tee xcodebuild.log
+
+      - name: Package IPA
+        run: |
+          APP_PATH="build/Build/Products/Release-iphoneos/VRViewer.app"
+          if [ ! -d "$APP_PATH" ]; then
+            echo "No se generó la app. Últimas 200 líneas del log:"
+            tail -n 200 xcodebuild.log
+            exit 1
+          fi
+          rm -rf Payload VRViewer.ipa
+          mkdir -p Payload
+          cp -R "$APP_PATH" Payload/
+          zip -r VRViewer.ipa Payload
+          ls -lh VRViewer.ipa
+
+      - name: Upload IPA
+        uses: actions/upload-artifact@v4
+        with:
+          name: VRViewer-ipa
+          path: VRViewer.ipa
+          if-no-files-found: error
+          retention-days: 30
+
+      - name: Upload build log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: xcodebuild-log
+          path: xcodebuild.log
+          if-no-files-found: ignore

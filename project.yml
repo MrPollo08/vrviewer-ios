@@ -1,0 +1,36 @@
+name: VRViewer
+options:
+  bundleIdPrefix: com.vrviewer
+  deploymentTarget:
+    iOS: "15.0"
+  createIntermediateGroups: true
+  groupSortPosition: top
+  xcodeVersion: "15.0"
+
+settings:
+  base:
+    SWIFT_VERSION: "5.0"
+    IPHONEOS_DEPLOYMENT_TARGET: "15.0"
+    MARKETING_VERSION: "1.0"
+    CURRENT_PROJECT_VERSION: "1"
+    ENABLE_BITCODE: "NO"
+    CODE_SIGN_STYLE: Automatic
+    DEVELOPMENT_TEAM: ""
+
+targets:
+  VRViewer:
+    type: application
+    platform: iOS
+    sources:
+      - path: VRViewer
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.vrviewer.ios
+        PRODUCT_NAME: VRViewer
+        INFOPLIST_FILE: Support/Info.plist
+        TARGETED_DEVICE_FAMILY: "1,2"
+        ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
+        SUPPORTS_MACCATALYST: "NO"
+        ONLY_ACTIVE_ARCH: "NO"
+    scheme:
+      gatherCoverageData: false
