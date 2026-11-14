@@ -38,7 +38,7 @@ jobs:
             -target VRViewer \
             -configuration Release \
             -sdk iphoneos \
-            -derivedDataPath build \
+            SYMROOT=build \
             CODE_SIGN_IDENTITY="" \
             CODE_SIGNING_REQUIRED=NO \
             CODE_SIGNING_ALLOWED=NO \
@@ -47,12 +47,13 @@ jobs:
 
       - name: Package IPA
         run: |
-          APP_PATH="build/Build/Products/Release-iphoneos/VRViewer.app"
-          if [ ! -d "$APP_PATH" ]; then
+          APP_PATH="$(find build -maxdepth 5 -name 'VRViewer.app' -type d | head -n 1)"
+          if [ -z "$APP_PATH" ]; then
             echo "No se generó la app. Últimas 200 líneas del log:"
             tail -n 200 xcodebuild.log
             exit 1
           fi
+          echo "App compilada en: $APP_PATH"
           rm -rf Payload VRViewer.ipa
           mkdir -p Payload
           cp -R "$APP_PATH" Payload/
