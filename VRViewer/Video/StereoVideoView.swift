@@ -97,12 +97,13 @@ final class StereoVideoView: UIView {
 
         let dx = separation * halfWidth
         let dy = verticalOffset * bounds.height
-        let scale = CATransform3DMakeScale(zoom, zoom, 1)
 
         CATransaction.begin()
         CATransaction.setDisableActions(true)
-        leftContainer.transform = CATransform3DConcat(CATransform3DMakeTranslation(dx, dy, 0), scale)
-        rightContainer.transform = CATransform3DConcat(CATransform3DMakeTranslation(-dx, dy, 0), scale)
+        leftContainer.transform = CGAffineTransform(translationX: dx, y: dy)
+            .scaledBy(x: zoom, y: zoom)
+        rightContainer.transform = CGAffineTransform(translationX: -dx, y: dy)
+            .scaledBy(x: zoom, y: zoom)
         CATransaction.commit()
     }
 
