@@ -30,21 +30,13 @@ final class HandProcessor {
     private let minInterval: CFTimeInterval = 1.0 / 24.0
     private var reportedError = false
 
-    private static let jointOrder: [String] = [
-        "wrist",
-        "thumbCMC", "thumbMP", "thumbIP", "thumbTip",
-        "indexMCP", "indexPIP", "indexDIP", "indexTip",
-        "middleMCP", "middlePIP", "middleDIP", "middleTip",
-        "ringMCP", "ringPIP", "ringDIP", "ringTip",
-        "littleMCP", "littlePIP", "littleDIP", "littleTip"
-    ]
-
-    /// Vision llama "little" a lo que MediaPipe llama "pinky"; se acepta cualquiera.
-    private static let alias: [String: [String]] = [
-        "littleMCP": ["pinkyMCP"],
-        "littlePIP": ["pinkyPIP"],
-        "littleDIP": ["pinkyDIP"],
-        "littleTip": ["pinkyTip"]
+    private static let jointOrder: [VNHumanHandPoseObservation.JointName] = [
+        .wrist,
+        .thumbCMC, .thumbMP, .thumbIP, .thumbTip,
+        .indexMCP, .indexPIP, .indexDIP, .indexTip,
+        .middleMCP, .middlePIP, .middleDIP, .middleTip,
+        .ringMCP, .ringPIP, .ringDIP, .ringTip,
+        .littleMCP, .littlePIP, .littleDIP, .littleTip
     ]
 
     private var isRunning = false
@@ -139,24 +131,11 @@ final class HandProcessor {
 
     /// 21 puntos normalizados (x, y) con origen arriba-izquierda y z = 0.
     private func landmarks(from observation: VNHumanHandPoseObservation) -> [(Float, Float, Float)]? {
-        guard let recognized = try? observation.recognizedPoints(.all) else { return nil }
-
-        var byName: [String: VNRecognizedPoint] = [:]
-        for (key, value) in recognized {
-            byName[key.rawValue] = value
-        }
-
         var result: [(Float, Float, Float)] = []
         result.reserveCapacity(21)
 
         for name in Self.jointOrder {
-            var point = byName[name]
-            if point == nil {
-                for alternative in Self.alias[name] ?? [] where point == nil {
-                    point = byName[alternative]
-                }
-            }
-            guard let found = point else { return nil }
+            guard let found = try? observation.recognizedPoint(name) else { return nil }
 
             var x = Float(found.location.x)
             var y = Float(1 - found.location.y) // Vision usa origen abajo-izquierda

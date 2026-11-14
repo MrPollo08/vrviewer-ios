@@ -48,12 +48,18 @@ final class HeadMotion {
     }
 
     private func handle(_ motion: CMDeviceMotion) {
-        let m = motion.rotationMatrix
-        let flat: [Float] = [
-            Float(m.m11), Float(m.m12), Float(m.m13),
-            Float(m.m21), Float(m.m22), Float(m.m23),
-            Float(m.m31), Float(m.m32), Float(m.m33)
-        ]
+        let matrix = motion.attitude.rotationMatrix
+
+        var flat = [Float](repeating: 0, count: 9)
+        flat[0] = Float(matrix.m11)
+        flat[1] = Float(matrix.m12)
+        flat[2] = Float(matrix.m13)
+        flat[3] = Float(matrix.m21)
+        flat[4] = Float(matrix.m22)
+        flat[5] = Float(matrix.m23)
+        flat[6] = Float(matrix.m31)
+        flat[7] = Float(matrix.m32)
+        flat[8] = Float(matrix.m33)
 
         let remapped = VRMath.remapMinusYAxisX(flat)
         let current = VRMath.quaternion(fromMatrix: remapped)
